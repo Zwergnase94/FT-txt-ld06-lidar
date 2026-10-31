@@ -35,7 +35,7 @@ Dieses Repository enthält den vollständigen **Python-Treiber**, die **System-K
 * **Genaue cm-Messwerte:** 8 übersichtliche Kacheln mit genauer Distanz in Zentimetern (Vorne, V-Rechts, Rechts, H-Rechts, Hinten, H-Links, Links, V-Links).
 * **Live-Status:** Zeigt permanent das nächste Hindernis im Raum an (z. B. `Min: 6cm (Rechts)`).
 
-Beide Apps liegen nach der Installation direkt auf der **obersten Ebene des TXT-Startbildschirms** (neben 4Play) und können mit einem Fingertippen gestartet werden.
+Beide Apps liegen nach der Installation direkt auf der **obersten Ebene des TXT-Startbildschirms** und können mit einem Fingertippen gestartet werden.
 
 ---
 
