@@ -10,12 +10,20 @@ Dieses Repository enthält den vollständigen **Python-Treiber**, die **System-K
 
 ---
 
-## 📸 Screenshots vom TXT-Display (240x320 Pixel)
+## 📸 Hardware & Screenshots
 
-| App 1: 360° Live-Radar | App 2: 8-Zonen & Dashboard |
-|:---:|:---:|
-| ![Radar App](docs/screenshots/radar_app.png) | ![8 Zonen App](docs/screenshots/sectors_app.png) |
-| *Punktwolke in Echtzeit (~4.500 Pkt/s)* | *Kollisionswarnung für alle 8 Richtungen* |
+| Sensor: LD06 DToF LiDAR | App 1: 360° Live-Radar | App 2: 8-Zonen & Dashboard |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/ld06_sensor.jpg" width="240" alt="LD06 DToF LiDAR Sensor"> | ![Radar App](docs/screenshots/radar_app.png) | ![8 Zonen App](docs/screenshots/sectors_app.png) |
+| *LD06 DToF LiDAR mit USB-Adapter* | *Punktwolke in Echtzeit (~4.500 Pkt/s)* | *Kollisionswarnung für alle 8 Richtungen* |
+
+### Über den LD06 DToF LiDAR Sensor
+Der **LD06** (LDROBOT) ist ein extrem kompakter, leichter 360°-Laser-Distanzsensor (Direct Time-of-Flight):
+* **Messfrequenz:** ca. 4.500 Messpunkte/Sekunde (4,5 kHz)
+* **Drehzahl / Scanrate:** ca. 10–13 Hz (vollständige 360°-Scans pro Sekunde)
+* **Messbereich:** 0,02 m bis 12 m
+* **Winkelauflösung:** ca. 0,8° bis 1,0°
+* **Schnittstelle:** Seriell (UART, 230.400 Baud) über beiliegenden CP2102-USB-Adapter direkt am USB-A-Port des TXT Controllers.
 
 ---
 
