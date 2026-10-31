@@ -1,4 +1,4 @@
-# LD06 DToF LiDAR für den fischertechnik ROBOTICS TXT (ftcommunity-TXT)
+# LD06 DToF LiDAR für den fischertechnik ROBOTICS TXT (ftcommunity-TXT Firmware)
 
 [![ftcommunity-TXT](https://img.shields.io/badge/Firmware-ftcommunity--TXT_1.1.4-blue.svg)](https://github.com/ftCommunity/ftcommunity-TXT)
 [![Platform](https://img.shields.io/badge/Platform-TI_AM3359_ARM_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
