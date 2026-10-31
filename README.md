@@ -1,5 +1,6 @@
 # LD06 DToF LiDAR für den fischertechnik ROBOTICS TXT (ftcommunity-TXT Firmware)
 
+[![Version](https://img.shields.io/badge/Release-v1.1.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/releases)
 [![ftcommunity-TXT](https://img.shields.io/badge/Firmware-ftcommunity--TXT_1.1.4-blue.svg)](https://github.com/ftCommunity/ftcommunity-TXT)
 [![Platform](https://img.shields.io/badge/Platform-TI_AM3359_ARM_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
 [![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)](https://www.python.org/)
@@ -63,6 +64,13 @@ Bei der Integration des LD06 auf dem klassischen TXT gab es drei knifflige Hürd
 
 ### 3. Zugriffsrechte & Hot-Plugging (udev)
 * Die Regel [`system/90-cp2102.rules`](system/90-cp2102.rules) sorgt dafür, dass Linux dem Gerät bei jedem Einstecken automatisch die Schreibrechte (`0666`, Gruppe `dialout`) zuweist und den seriellen Treiber lädt.
+
+### 4. Embedded-Performance & Speicherschonung (Release v1.1.0)
+* **Problem:** Der TXT verfügt über einen Single-Core ARM Cortex-A8 (600 MHz) und lediglich 231 MB nutzbaren Arbeitsspeicher ohne Swap. Bei 4.500 Messpunkten pro Sekunde erzeugte eine unoptimierte Datenverarbeitung über **10.000 temporäre Python-Objekte pro Sekunde** (Tuples und dynamische Listen) sowie hunderte Vektor-Zeichenbefehle pro Frame. Dies führte zu 100 % CPU-Dauerlast, Speicherfragmentierung, verhungerten WLAN-Paketen und eingefrorenem Display.
+* **Lösung (v1.1.0):**
+  1. **Zero-Allocation-Parsing:** Der Treiber [`driver/ld06.py`](driver/ld06.py) schreibt Rohdaten über `read_into_sectors` und `read_into_radar` direkt in vorallozierte C-Arrays. Keine Heap-Allokationen mehr im Sekundentakt!
+  2. **QPixmap-Hintergrund-Caching:** Statische Gitter, Achsen, Kreise und Kacheln werden nur ein einziges Mal in den Grafikspeicher gerendert und dann als Bitmap geblittet (`drawPixmap`). Die Renderzeit pro Frame sank von 54 ms auf **5 ms (10-mal schneller!)**.
+  3. **SPI-Display-Synchronisation:** Die Frameraten wurden optimal auf den internen 10-Hz-SPI-Displaytreiber des TXT abgestimmt (5 FPS für die 8 Zonen, 8 FPS für das Radar), sodass keine Kernel-Warteschlangen mehr überlaufen.
 
 ---
 
@@ -173,6 +181,19 @@ python3 driver/example_cli.py
 > [!TIP]
 > **Praxistipp zum Einstecken:** 
 > Falls der LiDAR beim Einstecken aus bleibt, einfach **2–3 Sekunden warten**. Der integrierte Watchdog erkennt die Abschaltung und reaktiviert den USB-Port automatisch. Für die stabilste Stromversorgung empfiehlt sich der Betrieb des TXT an einem **9V-Netzteil**.
+
+---
+
+## 📋 Versionshistorie / Changelog
+
+### v1.1.0 (Aktuell)
+* ⚡ **Performance & Stabilität:** Einführung von Zero-Allocation-Parsing im Treiber (`ld06.py`), wodurch 10.000 dynamische Python-Objekt-Allokationen pro Sekunde eliminiert wurden.
+* 🖼 **QPixmap-Caching:** Statische UI-Elemente beider Apps werden vorgerendert; Rendering-Zeit sank um über 90 % (von 54 ms auf 5 ms).
+* 🛡 **Speicher- und CPU-Schonung:** App-CPU-Last von 70 % auf < 15 % gesenkt. Verhindert Speicherüberlauf, UI-Freezes und WLAN-Abbrüche bei Dauerbetrieb.
+* 📷 **Hardware-Dokumentation:** Echtes Foto des LD06-Sensors und Spezifikationen in README integriert.
+
+### v1.0.0
+* 🚀 Initiales Release: CP2102-Userspace-Baudratentreiber, Auto-Reset-Daemon gegen Einschaltstrom-Brownouts, udev-Regeln und Touch-Apps (360° Radar & 8 Zonen).
 
 ---
 
