@@ -12,7 +12,7 @@ Dieses Repository enthält den vollständigen **Python-Treiber**, die **System-K
 
 ## 📸 Screenshots vom TXT-Display (240x320 Pixel)
 
-| App 1: 360° Live-Radar | App 2: 8-Zonen Parkpilot & Dashboard |
+| App 1: 360° Live-Radar | App 2: 8-Zonen & Dashboard |
 |:---:|:---:|
 | ![Radar App](docs/screenshots/radar_app.png) | ![8 Zonen App](docs/screenshots/sectors_app.png) |
 | *Punktwolke in Echtzeit (~4.500 Pkt/s)* | *Kollisionswarnung für alle 8 Richtungen* |
@@ -30,7 +30,7 @@ Dieses Repository enthält den vollständigen **Python-Treiber**, die **System-K
 * **Touch-Zoom:** Durch Antippen des Bildschirms oder des Buttons kann zwischen $1.0\text{ m}$, $2.0\text{ m}$, $4.0\text{ m}$ und $8.0\text{ m}$ umgeschaltet werden.
 * **Richtungsanzeige:** **V** (Vorne), **R** (Rechts), **H** (Hinten), **L** (Links) mit zentriertem Roboter-Pfeil.
 
-### 2. App „8 Zonen“ (Hindernis-Dashboard / Einparkhilfe)
+### 2. App „8 Zonen“ (Hindernis-Dashboard)
 * **Grafisches Sonar:** 8 kreisförmige Segmente um das Fahrzeugsymbol. Je näher ein Objekt kommt, desto größer wächst der Warnbalken auf den Roboter zu.
 * **Genaue cm-Messwerte:** 8 übersichtliche Kacheln mit genauer Distanz in Zentimetern (Vorne, V-Rechts, Rechts, H-Rechts, Hinten, H-Links, Links, V-Links).
 * **Live-Status:** Zeigt permanent das nächste Hindernis im Raum an (z. B. `Min: 6cm (Rechts)`).
