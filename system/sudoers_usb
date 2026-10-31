@@ -1,0 +1,2 @@
+# Allow ftc user to execute USB reset script without password prompt
+ftc ALL = (root) NOPASSWD: /home/ftc/reset_usb.sh

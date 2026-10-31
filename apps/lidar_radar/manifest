@@ -1,0 +1,10 @@
+[app]
+name: LIDAR
+icon: icon.png
+desc: A App for the TXT to use the LIDAR sensor.
+url: 
+exec: main.py
+managed: yes
+uuid: 02eef5e0-981a-11ed-87cd-0800200c9a66
+version: 1
+firmware: >=0.9.0
