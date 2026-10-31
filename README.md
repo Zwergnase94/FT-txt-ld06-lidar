@@ -64,7 +64,7 @@ Verbinde dich per SSH mit deinem TXT und führe folgende Befehle aus:
 
 ```bash
 # 1. Repository klonen oder auf den TXT kopieren
-git clone https://github.com/DEIN_BENUTZERNAME/ftcommunity-txt-ld06-lidar.git /home/ftc/ld06-lidar
+git clone https://github.com/Zwergnase94/FT-txt-ld06-lidar.git /home/ftc/ld06-lidar
 cd /home/ftc/ld06-lidar
 
 # 2. Installer ausführen
