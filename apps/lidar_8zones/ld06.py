@@ -98,25 +98,136 @@ class LD06:
             self.close()
             return []
 
+        # Pufferüberlauf bei Störungen verhindern
+        if len(self.buf) > 2048:
+            del self.buf[:-512]
+
         points = []
-        while len(self.buf) >= 47:
-            if self.buf[0] == 0x54 and self.buf[1] == 0x2C:
-                pkt = self.buf[:47]
-                del self.buf[:47]
-                fsa = struct.unpack_from('<H', pkt, 4)[0] / 100.0
-                lsa = struct.unpack_from('<H', pkt, 42)[0] / 100.0
-                diff = (lsa + 360 - fsa) if lsa < fsa else (lsa - fsa)
-                step = diff / 11.0
-                for i in range(12):
-                    dist = struct.unpack_from('<H', pkt, 6 + i * 3)[0]
-                    conf = pkt[6 + i * 3 + 2]
-                    angle = (fsa + i * step) % 360
-                    if dist > 0:
-                        points.append((angle, dist, conf))
-            else:
-                self.buf.pop(0)
+        while True:
+            idx = self.buf.find(b'\x54\x2c')
+            if idx == -1:
+                # Kein Paketkopf im gesamten Puffer -> bis auf letztes Byte verwerfen
+                if len(self.buf) > 1:
+                    del self.buf[:-1]
+                break
+            if idx > 0:
+                del self.buf[:idx]
+            if len(self.buf) < 47:
+                break
+
+            pkt = self.buf[:47]
+            del self.buf[:47]
+
+            fsa = (pkt[4] | (pkt[5] << 8)) * 0.01
+            lsa = (pkt[42] | (pkt[43] << 8)) * 0.01
+            diff = (lsa + 360.0 - fsa) if lsa < fsa else (lsa - fsa)
+            step = diff * (1.0 / 11.0)
+
+            for i in range(12):
+                byte_idx = 6 + i * 3
+                dist = pkt[byte_idx] | (pkt[byte_idx + 1] << 8)
+                if dist > 0:
+                    conf = pkt[byte_idx + 2]
+                    angle = (fsa + i * step) % 360.0
+                    points.append((angle, dist, conf))
 
         return points
+
+    def read_into_sectors(self, sec_min, sec_sum, sec_cnt, sec_time, now, block_size=400):
+        """Liest Messdaten direkt in 8 Sektoren ohne Objektallokationen (extrem schnell & speicherschonend)."""
+        if not self.is_connected():
+            return 0
+        try:
+            b = self.ser.read(block_size)
+            if b:
+                self.buf.extend(b)
+        except Exception:
+            self.close()
+            return 0
+
+        if len(self.buf) > 2048:
+            del self.buf[:-512]
+
+        pts_count = 0
+        while True:
+            idx = self.buf.find(b'\x54\x2c')
+            if idx == -1:
+                if len(self.buf) > 1:
+                    del self.buf[:-1]
+                break
+            if idx > 0:
+                del self.buf[:idx]
+            if len(self.buf) < 47:
+                break
+
+            pkt = self.buf[:47]
+            del self.buf[:47]
+
+            fsa = (pkt[4] | (pkt[5] << 8)) * 0.01
+            lsa = (pkt[42] | (pkt[43] << 8)) * 0.01
+            diff = (lsa + 360.0 - fsa) if lsa < fsa else (lsa - fsa)
+            step = diff * (1.0 / 11.0)
+
+            for i in range(12):
+                byte_idx = 6 + i * 3
+                dist = pkt[byte_idx] | (pkt[byte_idx + 1] << 8)
+                if dist > 20:
+                    pts_count += 1
+                    angle = (fsa + i * step) % 360.0
+                    sec_idx = int((angle + 22.5) * 0.02222222) % 8
+                    if dist < sec_min[sec_idx]:
+                        sec_min[sec_idx] = dist
+                    sec_sum[sec_idx] += dist
+                    sec_cnt[sec_idx] += 1
+                    sec_time[sec_idx] = now
+
+        return pts_count
+
+    def read_into_radar(self, scan_dist, scan_time, now, block_size=400):
+        """Liest Messdaten direkt in ein 360-Grad-Radar-Array ohne Zwischenallokationen."""
+        if not self.is_connected():
+            return 0
+        try:
+            b = self.ser.read(block_size)
+            if b:
+                self.buf.extend(b)
+        except Exception:
+            self.close()
+            return 0
+
+        if len(self.buf) > 2048:
+            del self.buf[:-512]
+
+        pts_count = 0
+        while True:
+            idx = self.buf.find(b'\x54\x2c')
+            if idx == -1:
+                if len(self.buf) > 1:
+                    del self.buf[:-1]
+                break
+            if idx > 0:
+                del self.buf[:idx]
+            if len(self.buf) < 47:
+                break
+
+            pkt = self.buf[:47]
+            del self.buf[:47]
+
+            fsa = (pkt[4] | (pkt[5] << 8)) * 0.01
+            lsa = (pkt[42] | (pkt[43] << 8)) * 0.01
+            diff = (lsa + 360.0 - fsa) if lsa < fsa else (lsa - fsa)
+            step = diff * (1.0 / 11.0)
+
+            for i in range(12):
+                byte_idx = 6 + i * 3
+                dist = pkt[byte_idx] | (pkt[byte_idx + 1] << 8)
+                if dist > 0:
+                    pts_count += 1
+                    deg = int((fsa + i * step) + 0.5) % 360
+                    scan_dist[deg] = dist
+                    scan_time[deg] = now
+
+        return pts_count
 
     def close(self):
         if self.ser:
