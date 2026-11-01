@@ -291,6 +291,7 @@ class LidarSectorsWindow(TouchWindow):
         self.sec_sum = [0] * 8
         self.sec_cnt = [0] * 8
         self.sec_time = [0.0] * 8
+        self.last_display_min = [0] * 8
         self.sector_lock = threading.Lock()
 
         self.dashboard = SectorDashboardWidget(self)
@@ -320,11 +321,12 @@ class LidarSectorsWindow(TouchWindow):
                     min_d = self.sec_min[i]
                     avg_d = self.sec_sum[i] // self.sec_cnt[i]
                     t = self.sec_time[i]
+                    self.last_display_min[i] = min_d
                     sec_snapshot.append((min_d, avg_d, t))
                 else:
                     prev_t = self.sec_time[i]
                     if prev_t > 0 and (now - prev_t) < 1.0:
-                        sec_snapshot.append((self.sec_min[i], 0, prev_t))
+                        sec_snapshot.append((self.last_display_min[i], 0, prev_t))
                     else:
                         sec_snapshot.append((0, 0, 0.0))
 

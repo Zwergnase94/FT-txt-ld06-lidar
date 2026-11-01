@@ -1,6 +1,6 @@
 # LD06 DToF LiDAR für den fischertechnik ROBOTICS TXT (ftcommunity-TXT Firmware)
 
-[![Version](https://img.shields.io/badge/Release-v1.1.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/releases)
+[![Version](https://img.shields.io/badge/Release-v1.2.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/releases)
 [![ftcommunity-TXT](https://img.shields.io/badge/Firmware-ftcommunity--TXT_1.1.4-blue.svg)](https://github.com/ftCommunity/ftcommunity-TXT)
 [![Platform](https://img.shields.io/badge/Platform-TI_AM3359_ARM_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
 [![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)](https://www.python.org/)
@@ -71,6 +71,13 @@ Bei der Integration des LD06 auf dem klassischen TXT gab es drei knifflige Hürd
   1. **Zero-Allocation-Parsing:** Der Treiber [`driver/ld06.py`](driver/ld06.py) schreibt Rohdaten über `read_into_sectors` und `read_into_radar` direkt in vorallozierte C-Arrays. Keine Heap-Allokationen mehr im Sekundentakt!
   2. **QPixmap-Hintergrund-Caching:** Statische Gitter, Achsen, Kreise und Kacheln werden nur ein einziges Mal in den Grafikspeicher gerendert und dann als Bitmap geblittet (`drawPixmap`). Die Renderzeit pro Frame sank von 54 ms auf **5 ms (10-mal schneller!)**.
   3. **SPI-Display-Synchronisation:** Die Frameraten wurden optimal auf den internen 10-Hz-SPI-Displaytreiber des TXT abgestimmt (5 FPS für die 8 Zonen, 8 FPS für das Radar), sodass keine Kernel-Warteschlangen mehr überlaufen.
+
+### 5. DToF-Signalfilterung & CRC-8 Prüfsumme (Release v1.2.0 – Backport aus TXT 4.0)
+* **Problem (Geisterhindernisse bei 6 cm):** Der LD06 detektiert bei schwachen Reflexionen an fernen Kanten minimale Photonenpeaks mit sehr geringer Signalstärke (`Confidence` 15..30). Ohne Filterung interpretierte der Treiber diese Streulicht-Spikes als echtes Nahbereichs-Hindernis bei 6 cm (z. B. sporadische Fehlalarme wie `Min: 6cm (Rechts)` im Ruhezustand). Zudem wurden defekte serielle Pakete bei Leitungsstörungen ungeprüft ausgewertet.
+* **Lösung (v1.2.0):**
+  1. **CRC-8 Prüfsummenvalidierung:** Jedes 47-Byte-Paket wird über eine vorberechnete Lookup-Tabelle (Polynom 0x4D) auf Bitfehler geprüft. Ungültige Pakete werden sofort verworfen.
+  2. **Confidence-Schwellenwert (`conf >= 100`):** Echte Hindernisse liefern Signalstärken von 150 bis 250. Rauschspikes mit `conf < 100` werden vollständig ausgefiltert.
+  3. **Blindzonen-Unterdrückung (`dist >= 30 mm`):** Optische Eigenreflexionen am Sensorgehäuse unter 3 cm werden zuverlässig ignoriert.
 
 ---
 
@@ -186,7 +193,14 @@ python3 driver/example_cli.py
 
 ## 📋 Versionshistorie / Changelog
 
-### v1.1.0 (Aktuell)
+### v1.2.0 (Aktuell)
+* 🎯 **Messwert-Filterung & Entstörung (Backport aus TXT 4.0):**
+  * **CRC-8 Prüfsummenvalidierung:** Hardwarenahe Paketprüfung mit Polynom `0x4D` verwirft beschädigte Datenübertragungen.
+  * **Streulicht-Filter (`conf >= 100`):** Beseitigt sporadische 6-cm-Geisterhindernisse durch Ausfilterung von Photonen-Rauschspikes geringer Intensität. Echte Objekte liegen bei 150..250.
+  * **Blindzonen-Rejection (`dist >= 30 mm`):** Verhindert optische Eigenblendung am Sensorgehäuse.
+  * **Display-Glättung:** Sektor-Dashboard puffert letzte gültige Messwerte für stabilere Zahlenanzeige.
+
+### v1.1.0
 * ⚡ **Performance & Stabilität:** Einführung von Zero-Allocation-Parsing im Treiber (`ld06.py`), wodurch 10.000 dynamische Python-Objekt-Allokationen pro Sekunde eliminiert wurden.
 * 🖼 **QPixmap-Caching:** Statische UI-Elemente beider Apps werden vorgerendert; Rendering-Zeit sank um über 90 % (von 54 ms auf 5 ms).
 * 🛡 **Speicher- und CPU-Schonung:** App-CPU-Last von 70 % auf < 15 % gesenkt. Verhindert Speicherüberlauf, UI-Freezes und WLAN-Abbrüche bei Dauerbetrieb.
