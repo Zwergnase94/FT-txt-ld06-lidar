@@ -1,218 +1,147 @@
-# LD06 DToF LiDAR für den fischertechnik ROBOTICS TXT (ftcommunity-TXT Firmware)
+# LD06 LiDAR-Treiber & Apps für fischertechnik ROBOTICS TXT (ftcommunity-TXT)
 
-[![Version](https://img.shields.io/badge/Release-v1.2.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/releases)
+[![Version](https://img.shields.io/badge/Version-v1.2.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/tags)
 [![ftcommunity-TXT](https://img.shields.io/badge/Firmware-ftcommunity--TXT_1.1.4-blue.svg)](https://github.com/ftCommunity/ftcommunity-TXT)
-[![Platform](https://img.shields.io/badge/Platform-TI_AM3359_ARM_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
+[![Platform](https://img.shields.io/badge/SoC-TI_AM3359_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
 [![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)](https://www.python.org/)
 [![UI](https://img.shields.io/badge/GUI-TouchStyle_%2F_PyQt5-orange.svg)](https://github.com/harbaum/TouchUI)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-Dieses Repository enthält den vollständigen **Python-Treiber**, die **System-Konfigurationen (udev / Auto-Reset)** sowie **zwei native Touchscreen-Apps** für den **Super Mini DTOF Prinzip LiDAR LD06** auf dem **fischertechnik ROBOTICS TXT Controller** mit der **Community-Firmware (ftcommunity-TXT)**.
+Python-Treiber, System-Skripte (udev & automatischer USB-Reset) und zwei Touchscreen-Apps für den **LDROBOT LD06 360°-LiDAR** auf dem **fischertechnik ROBOTICS TXT Controller** mit **Community-Firmware (ftcommunity-TXT)**.
+
+> **TXT 4.0 im Einsatz?** Für den neueren **fischertechnik TXT 4.0** gibt es ein separates Repository: [FT-txt-4.0-ld06-lidar](https://github.com/Zwergnase94/FT-txt-4.0-ld06-lidar).
 
 ---
 
-## 📸 Hardware & Screenshots
+## Hardware & Screenshots
 
-| Sensor: LD06 DToF LiDAR | App 1: 360° Live-Radar | App 2: 8-Zonen & Dashboard |
+| Sensor: LD06 LiDAR | App 1: „LIDAR“ (360°-Radar) | App 2: „8 Zonen“ |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/ld06_sensor.jpg" width="240" alt="LD06 DToF LiDAR Sensor"> | ![Radar App](docs/screenshots/radar_app.png) | ![8 Zonen App](docs/screenshots/sectors_app.png) |
-| *LD06 DToF LiDAR mit USB-Adapter* | *Punktwolke in Echtzeit (~4.500 Pkt/s)* | *Kollisionswarnung für alle 8 Richtungen* |
+| <img src="docs/screenshots/ld06_sensor.jpg" width="220" alt="LD06 LiDAR Sensor"> | ![Radar App](docs/screenshots/radar_app.png) | ![8 Zonen App](docs/screenshots/sectors_app.png) |
+| *LD06 mit CP2102-USB-Adapter* | *Live-Punktwolke mit Zoom* | *Abstandswarnung in 8 Richtungen* |
 
-### Über den LD06 DToF LiDAR Sensor
-Der **LD06** (LDROBOT) ist ein extrem kompakter, leichter 360°-Laser-Distanzsensor (Direct Time-of-Flight):
-* **Messfrequenz:** ca. 4.500 Messpunkte/Sekunde (4,5 kHz)
-* **Drehzahl / Scanrate:** ca. 10–13 Hz (vollständige 360°-Scans pro Sekunde)
-* **Messbereich:** 0,02 m bis 12 m
-* **Winkelauflösung:** ca. 0,8° bis 1,0°
-* **Schnittstelle:** Seriell (UART, 230.400 Baud) über beiliegenden CP2102-USB-Adapter direkt am USB-A-Port des TXT Controllers.
+### Eckdaten des Sensors (LDROBOT LD06)
+* **Messprinzip:** Direct Time-of-Flight (DToF), 360°-Rundumscan
+* **Abtastrate:** ca. 4.500 Punkte/s bei 10–13 Hz Drehzahl
+* **Messbereich:** 0,02 m bis 12 m (Winkelauflösung ca. 0,8°–1,0°)
+* **Anschluss:** UART (230.400 Baud) über beiliegenden CP2102-USB-Adapter direkt am USB-A-Port des TXT.
 
 ---
 
-## 🚀 Die beiden enthaltenen Apps
+## Enthaltene Touch-Apps
 
-### 1. App „LIDAR“ (360° Polar-Radar)
-* **Hardwarenahes Rendering:** Nutzt `QPainter` und das offizielle `TouchStyle`-Framework (kein schwerfälliges `matplotlib` – flüssige 12,5 FPS bei nur ~25 % CPU-Last auf dem 600 MHz ARM-Prozessor).
-* **Farbcodierte Punktwolke:**
-  * 🔴 **Rot:** Sehr nah ($< 30\text{ cm}$) – unmittelbare Kollisionsgefahr.
-  * 🟡 **Gelb:** Mittlerer Abstand ($30\text{ cm}$ bis $80\text{ cm}$).
-  * 🔵 **Cyan:** Weiter entfernt ($> 80\text{ cm}$).
-* **Touch-Zoom:** Durch Antippen des Bildschirms oder des Buttons kann zwischen $1.0\text{ m}$, $2.0\text{ m}$, $4.0\text{ m}$ und $8.0\text{ m}$ umgeschaltet werden.
-* **Richtungsanzeige:** **V** (Vorne), **R** (Rechts), **H** (Hinten), **L** (Links) mit zentriertem Roboter-Pfeil.
+Beide Apps erscheinen nach der Installation direkt auf dem Startbildschirm der Community-Firmware.
 
-### 2. App „8 Zonen“ (Hindernis-Dashboard)
-* **Grafisches Sonar:** 8 kreisförmige Segmente um das Fahrzeugsymbol. Je näher ein Objekt kommt, desto größer wächst der Warnbalken auf den Roboter zu.
-* **Genaue cm-Messwerte:** 8 übersichtliche Kacheln mit genauer Distanz in Zentimetern (Vorne, V-Rechts, Rechts, H-Rechts, Hinten, H-Links, Links, V-Links).
-* **Live-Status:** Zeigt permanent das nächste Hindernis im Raum an (z. B. `Min: 6cm (Rechts)`).
+### 1. App „LIDAR“ – 360°-Radar
+* Ressourcenschonendes Rendering über `QPainter` und `TouchStyle` mit gecachtem Hintergrund (8 FPS bei geringer CPU-Last auf dem 600-MHz-Prozessor).
+* Farbcodierte Punktwolke: **Rot** (< 30 cm), **Gelb** (30–80 cm), **Cyan** (> 80 cm).
+* Umschaltbare Zoomstufen per Touch: **1,0 m, 2,0 m, 4,0 m und 8,0 m**.
 
-Beide Apps liegen nach der Installation direkt auf der **obersten Ebene des TXT-Startbildschirms** und können mit einem Fingertippen gestartet werden.
+### 2. App „8 Zonen“ – Hindernis-Dashboard
+* Kreisförmige Segmentanzeige rund um das Fahrzeugsymbol sowie acht Kacheln mit Zentimeter-Messwerten (Vorne, V-Rechts, Rechts, H-Rechts, Hinten, H-Links, Links, V-Links; 5 FPS).
+* Statuszeile mit dem aktuell nächsten Hindernis (z. B. `Min: 34 cm (Rechts)`).
 
 ---
 
-## 💡 Technische Herausforderungen & Lösungen
+## Technische Besonderheiten auf dem TXT
 
-Bei der Integration des LD06 auf dem klassischen TXT gab es drei knifflige Hürden, die in diesem Projekt vollständig gelöst wurden:
+Damit der LD06 am klassischen ROBOTICS TXT zuverlässig läuft, löst dieses Projekt vier plattformspezifische Hürden (Details unter [`docs/pinout_and_hardware.md`](docs/pinout_and_hardware.md)):
 
-### 1. Fehlender CP210X-Treiber im Linux-Kernel
-* **Problem:** Der TXT-Kernel (`4.14.336 armv7l`) hat Treiber für FTDI, CH341 und PL2303, aber **nicht** für den *Silicon Labs CP2102*. Beim Einstecken bindet Linux nur den rudimentären Treiber `usbserial_generic`, der die Baudrate von $230.400\text{ Baud}$ nicht setzen kann.
-* **Lösung:** Unser Treiber [`driver/ld06.py`](driver/ld06.py) sendet hardwarenahe USB-Control-Transfers (`0xc0105500`) direkt an den USB-Knoten und konfiguriert den CP2102-Chip per Software auf $230.400\text{ Baud}$ (8N1, DTR=1, RTS=1). Ein Neukompilieren des Kernels ist **nicht** erforderlich!
-
-### 2. USB-Spannungseinbruch & Abschaltung (`VBUS_ERROR`)
-* **Problem:** Beim Anstecken des LiDARs zieht der integrierte Elektromotor einen kurzen Einschaltstrom (Inrush Current). Der USB-Host-Controller des Texas Instruments Sitara AM3359 registriert einen minimalen Spannungseinbruch (`VBUS_ERROR in a_wait_bcon`) und schaltet den USB-Port aus Schutzgründen komplett ab (`Vbus off`).
-* **Lösung:** 
-  1. Das Skript [`system/reset_usb.sh`](system/reset_usb.sh) führt einen Reset des MUSB-Controllers via Sysfs aus (`unbind` / `bind`).
-  2. Der Treiber überwacht den Status des USB-Ports und führt diesen Reset bei Bedarf **vollautomatisch im Hintergrund** durch.
-
-### 3. Zugriffsrechte & Hot-Plugging (udev)
-* Die Regel [`system/90-cp2102.rules`](system/90-cp2102.rules) sorgt dafür, dass Linux dem Gerät bei jedem Einstecken automatisch die Schreibrechte (`0666`, Gruppe `dialout`) zuweist und den seriellen Treiber lädt.
-
-### 4. Embedded-Performance & Speicherschonung (Release v1.1.0)
-* **Problem:** Der TXT verfügt über einen Single-Core ARM Cortex-A8 (600 MHz) und lediglich 231 MB nutzbaren Arbeitsspeicher ohne Swap. Bei 4.500 Messpunkten pro Sekunde erzeugte eine unoptimierte Datenverarbeitung über **10.000 temporäre Python-Objekte pro Sekunde** (Tuples und dynamische Listen) sowie hunderte Vektor-Zeichenbefehle pro Frame. Dies führte zu 100 % CPU-Dauerlast, Speicherfragmentierung, verhungerten WLAN-Paketen und eingefrorenem Display.
-* **Lösung (v1.1.0):**
-  1. **Zero-Allocation-Parsing:** Der Treiber [`driver/ld06.py`](driver/ld06.py) schreibt Rohdaten über `read_into_sectors` und `read_into_radar` direkt in vorallozierte C-Arrays. Keine Heap-Allokationen mehr im Sekundentakt!
-  2. **QPixmap-Hintergrund-Caching:** Statische Gitter, Achsen, Kreise und Kacheln werden nur ein einziges Mal in den Grafikspeicher gerendert und dann als Bitmap geblittet (`drawPixmap`). Die Renderzeit pro Frame sank von 54 ms auf **5 ms (10-mal schneller!)**.
-  3. **SPI-Display-Synchronisation:** Die Frameraten wurden optimal auf den internen 10-Hz-SPI-Displaytreiber des TXT abgestimmt (5 FPS für die 8 Zonen, 8 FPS für das Radar), sodass keine Kernel-Warteschlangen mehr überlaufen.
-
-### 5. DToF-Signalfilterung & CRC-8 Prüfsumme (Release v1.2.0 – Backport aus TXT 4.0)
-* **Problem (Geisterhindernisse bei 6 cm):** Der LD06 detektiert bei schwachen Reflexionen an fernen Kanten minimale Photonenpeaks mit sehr geringer Signalstärke (`Confidence` 15..30). Ohne Filterung interpretierte der Treiber diese Streulicht-Spikes als echtes Nahbereichs-Hindernis bei 6 cm (z. B. sporadische Fehlalarme wie `Min: 6cm (Rechts)` im Ruhezustand). Zudem wurden defekte serielle Pakete bei Leitungsstörungen ungeprüft ausgewertet.
-* **Lösung (v1.2.0):**
-  1. **CRC-8 Prüfsummenvalidierung:** Jedes 47-Byte-Paket wird über eine vorberechnete Lookup-Tabelle (Polynom 0x4D) auf Bitfehler geprüft. Ungültige Pakete werden sofort verworfen.
-  2. **Confidence-Schwellenwert (`conf >= 100`):** Echte Hindernisse liefern Signalstärken von 150 bis 250. Rauschspikes mit `conf < 100` werden vollständig ausgefiltert.
-  3. **Blindzonen-Unterdrückung (`dist >= 30 mm`):** Optische Eigenreflexionen am Sensorgehäuse unter 3 cm werden zuverlässig ignoriert.
+1. **CP2102-Baudrate ohne Kernel-Treiber:** Im Kernel von `ftcommunity-TXT 1.1.4` (`4.14.336`) fehlt das Modul `cp210x`; `usbserial_generic` kann keine Baudrate setzen. [`driver/ld06.py`](driver/ld06.py) konfiguriert den CP2102 daher direkt per USB-Control-Transfer (`0xc0105500`) auf 230.400 Baud – ohne Kernel-Neukompilierung. [`system/90-cp2102.rules`](system/90-cp2102.rules) richtet beim Anstecken automatisch Gerät und Rechte ein.
+2. **Automatischer USB-Reset bei `VBUS_ERROR`:** Der kurze Anlaufstrom des LiDAR-Motors kann am TI AM3359 die USB-Schutzabschaltung auslösen (`Vbus off`). Der Treiber überwacht den Portstatus und reaktiviert den USB-Controller bei Bedarf automatisch über [`system/reset_usb.sh`](system/reset_usb.sh).
+3. **Optimiert für 600 MHz ARM & 231 MB RAM:** Zero-Allocation-Methoden (`read_into_radar`, `read_into_sectors`) schreiben Messwerte ohne ständige Objekt-Erzeugung in feste Puffer. Vorberechnete `QPixmap`-Hintergründe senken die Zeichenzeit auf ca. 5 ms pro Frame.
+4. **CRC-8 & Streulicht-Filter:** Jedes 47-Byte-Paket wird per CRC-8 (`0x4D`) geprüft. Zusätzlich verwirft der Treiber schwache Streulicht-Reflexionen (`conf < 100`) und Eigenreflexionen am Gehäuse (`dist < 30 mm`), wodurch sporadische 6-cm-Fehlmessungen entfallen.
 
 ---
 
-## 📦 Schnelle 1-Klick-Installation
+## Installation
 
-Verbinde dich per SSH mit deinem TXT und führe folgende Befehle aus:
+Per SSH mit dem TXT verbinden (`ssh ftc@<TXT_IP>`) und das Installationsskript ausführen:
 
 ```bash
-# 1. Repository klonen oder auf den TXT kopieren
 git clone https://github.com/Zwergnase94/FT-txt-ld06-lidar.git /home/ftc/ld06-lidar
 cd /home/ftc/ld06-lidar
-
-# 2. Installer ausführen
 chmod +x install.sh
 ./install.sh
 ```
 
-Das Skript richtet alles automatisch ein (udev-Regeln, Sudoers, Apps und Startbildschirm).
+*(Alternativ das Repository am PC herunterladen und per `scp -r` nach `/home/ftc/ld06-lidar` kopieren.)*
 
----
+Das Skript installiert udev-Regel, USB-Reset-Freigabe sowie beide Apps und trägt sie auf dem Startbildschirm ein.
 
-## 🛠 Manuelle Installation (Schritt für Schritt)
+<details>
+<summary><strong>Manuelle Installation (Einzelschritte anzeigen)</strong></summary>
 
-Falls du die Schritte einzeln durchführen möchtest:
-
-### 1. USB-Reset-Skript & Berechtigung einrichten
 ```bash
-# Skript kopieren und ausführbar machen
+# 1. USB-Reset-Skript & Sudoers-Regel
 cp system/reset_usb.sh /home/ftc/reset_usb.sh
 chmod +x /home/ftc/reset_usb.sh
-
-# Passwortlose Ausführung für ftc erlauben
 echo 'ftc ALL = (root) NOPASSWD: /home/ftc/reset_usb.sh' | sudo tee /etc/sudoers.d/usb
-```
 
-### 2. udev-Regel installieren
-```bash
+# 2. udev-Regel für CP2102 aktivieren
 sudo cp system/90-cp2102.rules /etc/udev/rules.d/90-cp2102.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
 sudo modprobe usbserial vendor=0x10c4 product=0xea60
-```
 
-### 3. Apps in das Benutzerverzeichnis kopieren
-```bash
+# 3. Apps nach /home/ftc/apps/ kopieren
 mkdir -p /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66
 mkdir -p /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88
-
 cp -r apps/lidar_radar/* /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/
 cp -r apps/lidar_8zones/* /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/
-
 chmod +x /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/main.py
 chmod +x /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/main.py
-```
 
-### 4. Apps auf dem Startbildschirm platzieren
-Bearbeite `/home/ftc/.launcher.xml` und füge die beiden Pfade direkt unter `<apps>` ein:
-```xml
-<launcher>
-  <apps>
-    <app path="user/02eef5e0-981a-11ed-87cd-0800200c9a66" />
-    <app path="user/e8b5a1f0-4567-4f89-8d12-10d6800c9a88" />
-    ...
-  </apps>
-</launcher>
-```
-Anschließend den Launcher neu starten:
-```bash
+# 4. In /home/ftc/.launcher.xml unter <apps> eintragen und Launcher neu starten:
+#    <app path="user/02eef5e0-981a-11ed-87cd-0800200c9a66" />
+#    <app path="user/e8b5a1f0-4567-4f89-8d12-10d6800c9a88" />
 sudo /etc/init.d/S90launcher restart
 ```
+</details>
 
 ---
 
-## 🐍 Treiber in eigenen Python-Projekten nutzen
-
-Du kannst den LiDAR-Treiber kinderleicht in deine eigenen Roboter-Steuerungsprogramme einbinden (z. B. für autonome Hindernisausweichung oder RoboCup):
+## Treiber in eigenen Python-Skripten nutzen
 
 ```python
-from ld06 import LD06
 import time
+from ld06 import LD06
 
 lidar = LD06()
 
-# Lese kontinuierlich Messpunkte aus
 while True:
-    points = lidar.read_points()
-    for angle_deg, distance_mm, confidence in points:
-        if distance_mm > 0:
-            print(f"Winkel: {angle_deg:5.1f}° | Distanz: {distance_mm / 10.0:5.1f} cm (Konfidenz: {confidence})")
+    for angle_deg, dist_mm, conf in lidar.read_points():
+        print(f"Winkel: {angle_deg:5.1f}° | Distanz: {dist_mm / 10.0:5.1f} cm (conf={conf})")
     time.sleep(0.01)
 ```
 
-Ein vollständiges Terminal-Beispiel mit formatierter 8-Sektoren-Ausgabe findest du unter [`driver/example_cli.py`](driver/example_cli.py):
-```bash
-python3 driver/example_cli.py
-```
+Ein Konsolen-Beispiel mit 8-Sektoren-Auswertung liegt unter [`driver/example_cli.py`](driver/example_cli.py) (`python3 driver/example_cli.py`).
 
 ---
 
-## 🔌 Hardware-Verkabelung
+## Pinbelegung (LD06 an CP2102)
 
-| LD06 Pin | Signal | Verbindung am CP2102-Adapter |
+| LD06 Pin | Signal | CP2102-Adapter |
 |:---:|:---:|:---|
-| **Pin 1 (Rot)** | 5V | `5V` |
-| **Pin 2 (Gelb)** | PWM | *(offen lassen für Standard-Geschwindigkeit)* |
+| **Pin 1 (Rot)** | 5 V | `5V` |
+| **Pin 2 (Gelb)** | PWM | *offen lassen (Standard-Drehzahl)* |
 | **Pin 3 (Schwarz)** | GND | `GND` |
-| **Pin 4 (Weiß/Blau)**| TX | `RXD` |
+| **Pin 4 (Weiß/Blau)** | TX | `RXD` |
 
 > [!TIP]
-> **Praxistipp zum Einstecken:** 
-> Falls der LiDAR beim Einstecken aus bleibt, einfach **2–3 Sekunden warten**. Der integrierte Watchdog erkennt die Abschaltung und reaktiviert den USB-Port automatisch. Für die stabilste Stromversorgung empfiehlt sich der Betrieb des TXT an einem **9V-Netzteil**.
+> Läuft der Sensor direkt nach dem Anstecken nicht an, einfach **2–3 Sekunden warten** – der Treiber erkennt die USB-Abschaltung beim Start einer App bzw. beim Verbindungsaufbau und schaltet den Port automatisch wieder frei. Für stabilen Dauerbetrieb empfiehlt sich ein **9-V-Netzteil** am TXT.
 
 ---
 
-## 📋 Versionshistorie / Changelog
+## Changelog
 
-### v1.2.0 (Aktuell)
-* 🎯 **Messwert-Filterung & Entstörung (Backport aus TXT 4.0):**
-  * **CRC-8 Prüfsummenvalidierung:** Hardwarenahe Paketprüfung mit Polynom `0x4D` verwirft beschädigte Datenübertragungen.
-  * **Streulicht-Filter (`conf >= 100`):** Beseitigt sporadische 6-cm-Geisterhindernisse durch Ausfilterung von Photonen-Rauschspikes geringer Intensität. Echte Objekte liegen bei 150..250.
-  * **Blindzonen-Rejection (`dist >= 30 mm`):** Verhindert optische Eigenblendung am Sensorgehäuse.
-  * **Display-Glättung:** Sektor-Dashboard puffert letzte gültige Messwerte für stabilere Zahlenanzeige.
-
-### v1.1.0
-* ⚡ **Performance & Stabilität:** Einführung von Zero-Allocation-Parsing im Treiber (`ld06.py`), wodurch 10.000 dynamische Python-Objekt-Allokationen pro Sekunde eliminiert wurden.
-* 🖼 **QPixmap-Caching:** Statische UI-Elemente beider Apps werden vorgerendert; Rendering-Zeit sank um über 90 % (von 54 ms auf 5 ms).
-* 🛡 **Speicher- und CPU-Schonung:** App-CPU-Last von 70 % auf < 15 % gesenkt. Verhindert Speicherüberlauf, UI-Freezes und WLAN-Abbrüche bei Dauerbetrieb.
-* 📷 **Hardware-Dokumentation:** Echtes Foto des LD06-Sensors und Spezifikationen in README integriert.
-
-### v1.0.0
-* 🚀 Initiales Release: CP2102-Userspace-Baudratentreiber, Auto-Reset-Daemon gegen Einschaltstrom-Brownouts, udev-Regeln und Touch-Apps (360° Radar & 8 Zonen).
+* **v1.2.0:** CRC-8-Paketprüfung (`0x4D`), Signalstärken-Filter (`conf >= 100`) gegen 6-cm-Streulicht-Ausreißer, Nahbereichs-Ausblendung (`< 30 mm`) und ruhigere Sektor-Anzeige (Backport vom TXT 4.0).
+* **v1.1.0:** Zero-Allocation-Puffer im Treiber, `QPixmap`-Hintergrund-Caching in beiden Apps und reduzierte CPU-Last (< 15 %).
+* **v1.0.0:** Erstveröffentlichung mit CP2102-Userspace-Initialisierung, automatischem USB-Reset, udev-Regel und beiden Touch-Apps.
 
 ---
 
-## 📄 Lizenz & Autor
+## Lizenz & Autor
 
-* **Autor:** Manuel Neumann (Zwergnase94)
+* **Autor:** Manuel Neumann ([Zwergnase94](https://github.com/Zwergnase94))
 * **Lizenz:** [MIT License](LICENSE)
-* **Danksagung:** Danke an die [ft:community](https://ftcommunity.de/) für die großartige Community-Firmware und das `TouchStyle`-Framework!
+* **Dank:** An die [ft:community](https://ftcommunity.de/) für `ftcommunity-TXT` und das `TouchStyle`-Framework.
