@@ -1,4 +1,4 @@
 # Silicon Labs CP2102 USB-to-UART Bridge for LD06 DToF LiDAR
-# Automatically grant access to USB control node for baudrate setup & bind usbserial driver
-SUBSYSTEM=="usb", ATTR{idVendor}=="10c4", ATTR{idProduct}=="ea60", MODE="0666", GROUP="dialout", RUN+="/sbin/modprobe usbserial vendor=0x10c4 product=0xea60"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666", GROUP="dialout"
+# Automatically grant access to USB control node for baudrate setup & bind cp210x / usbserial_generic
+ACTION!="remove", SUBSYSTEM=="usb", ATTR{idVendor}=="10c4", ATTR{idProduct}=="ea60", MODE="0666", GROUP="dialout", RUN+="/bin/sh -c '[ -d /sys/bus/usb-serial/drivers/cp210x ] || /sbin/modprobe -q cp210x || { /sbin/modprobe -q usbserial vendor=0x10c4 product=0xea60; p=/sys/bus/usb-serial/drivers/generic/new_id; if [ -w $p ]; then f=0; while read v d _; do case $v:$d in 10c4:ea60|10C4:EA60) f=1;; esac; done < $p 2>/dev/null; [ $f = 0 ] && echo 10c4 ea60 > $p 2>/dev/null; fi; }'"
+ACTION!="remove", SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666", GROUP="dialout"

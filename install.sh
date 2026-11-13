@@ -31,8 +31,11 @@ sudo cp "$BASE_DIR/system/90-cp2102.rules" /etc/udev/rules.d/90-cp2102.rules
 sudo udevadm control --reload-rules || true
 sudo udevadm trigger || true
 
-# Kernelmodul sofort laden
-sudo modprobe usbserial vendor=0x10c4 product=0xea60 2>/dev/null || true
+# Kernelmodul sofort laden (falls usbserial bereits z.B. durch ch341 geladen ist, per new_id registrieren)
+if [ ! -d /sys/bus/usb-serial/drivers/cp210x ] && ! sudo /sbin/modprobe -q cp210x 2>/dev/null; then
+    sudo /sbin/modprobe usbserial vendor=0x10c4 product=0xea60 2>/dev/null || true
+    sudo /bin/sh -c 'p=/sys/bus/usb-serial/drivers/generic/new_id; if [ -w $p ]; then f=0; while read v d _; do case $v:$d in 10c4:ea60|10C4:EA60) f=1;; esac; done < $p 2>/dev/null; [ $f = 0 ] && echo 10c4 ea60 > $p 2>/dev/null; fi' || true
+fi
 
 # 4. Apps kopieren
 echo "[4/6] Installiere Apps nach /home/ftc/apps/..."

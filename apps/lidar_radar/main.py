@@ -45,8 +45,10 @@ class RadarWidget(QWidget):
         # Scan-Puffer: Feste Arrays (0 Objektallokationen während des Betriebs)
         self.scan_dist = [0] * 360
         self.scan_time = [0.0] * 360
+        self.snap_dists = [0] * 360
+        self.snap_times = [0.0] * 360
+        self.snap_now = 0.0
         self.data_lock = threading.Lock()
-        self.has_points = False
 
         # Vorallozierte Grafikressourcen
         self.brush_bg = QBrush(QColor(10, 14, 20))
@@ -54,9 +56,9 @@ class RadarWidget(QWidget):
         self.pen_axis = QPen(QColor(0, 170, 125, 200), 1, Qt.SolidLine)
         self.pen_outer = QPen(QColor(0, 220, 160, 255), 2, Qt.SolidLine)
 
-        self.brush_red = QBrush(QColor(255, 50, 50))
-        self.brush_yellow = QBrush(QColor(255, 205, 0))
-        self.brush_cyan = QBrush(QColor(0, 240, 255))
+        self.color_red = QColor(255, 50, 50)
+        self.color_yellow = QColor(255, 205, 0)
+        self.color_cyan = QColor(0, 240, 255)
 
         self.brush_arrow_warn = QBrush(QColor(255, 70, 0))
         self.brush_arrow_normal = QBrush(QColor(0, 180, 255))
@@ -70,8 +72,15 @@ class RadarWidget(QWidget):
         self.font_dist = QFont('Liberation Sans', 7)
         self.font_wait = QFont('Liberation Sans', 10, QFont.Bold)
 
-        # Vorberechnetes Gitter (spart ~75% Zeichen-Overhead in jedem Frame)
+        # Vorberechnete Koordinatenfaktoren & Gitter-Pixmap
         self.grid_pixmap = None
+        self.cx = 120.0
+        self.cy = 110.0
+        self.pt_x_base = 119.0
+        self.pt_y_base = 109.0
+        self.arrow_poly = QPolygonF()
+        self.scale_sin = [0.0] * 360
+        self.scale_cos = [0.0] * 360
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -89,6 +98,20 @@ class RadarWidget(QWidget):
         cx = w * 0.5
         cy = h * 0.5
         r_max = min(w, h) * 0.5 - 8.0
+        self.cx = cx
+        self.cy = cy
+        self.pt_x_base = cx - 1.0
+        self.pt_y_base = cy - 1.0
+        self.arrow_poly = QPolygonF([
+            QPointF(cx, cy - 7),
+            QPointF(cx + 5, cy + 5),
+            QPointF(cx, cy + 3),
+            QPointF(cx - 5, cy + 5),
+        ])
+
+        r_scale = r_max / float(self.max_range)
+        self.scale_sin = [r_scale * s for s in SIN_TABLE]
+        self.scale_cos = [r_scale * c for c in COS_TABLE]
 
         p.setBrush(Qt.NoBrush)
         for i in range(1, 5):
@@ -136,68 +159,55 @@ class RadarWidget(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
 
         if not self.grid_pixmap:
             self._render_static_grid()
 
-        # 1. Statisches Gitter blitten (1 Call)
+        # 1. Statisches Gitter blitten (ohne Antialiasing-Overhead)
         painter.drawPixmap(0, 0, self.grid_pixmap)
 
-        w = self.width()
-        h = self.height()
-        cx = w * 0.5
-        cy = h * 0.5
-        r_max = min(w, h) * 0.5 - 8.0
+        dists = self.snap_dists
+        times = self.snap_times
+        now = self.snap_now
+        cutoff = now - 0.6
+        max_range = self.max_range
+        pt_x_base = self.pt_x_base
+        pt_y_base = self.pt_y_base
+        scale_sin = self.scale_sin
+        scale_cos = self.scale_cos
+        c_red = self.color_red
+        c_yellow = self.color_yellow
+        c_cyan = self.color_cyan
+        fill_rect = painter.fillRect
 
-        now = time.time()
-        with self.data_lock:
-            dists = list(self.scan_dist)
-            times = list(self.scan_time)
-
-        # 2. Messpunkte zeichnen
-        painter.setPen(Qt.NoPen)
+        # 2. Messpunkte per schnellem Integer-fillRect zeichnen (ohne AA / setBrush)
         has_recent = False
         min_dist_active = 99999
-        inv_max_range = 1.0 / float(self.max_range)
 
         for deg in range(360):
             dist = dists[deg]
-            t = times[deg]
-            if dist <= 0 or (now - t) > 0.6:
+            if dist <= 0 or times[deg] <= cutoff:
                 continue
 
             has_recent = True
             if dist < min_dist_active:
                 min_dist_active = dist
 
-            r_px = (dist * inv_max_range) * r_max
-            if r_px > r_max:
+            if dist > max_range:
                 continue
 
-            px = cx + r_px * SIN_TABLE[deg]
-            py = cy - r_px * COS_TABLE[deg]
+            col = c_red if dist < 300 else (c_yellow if dist < 800 else c_cyan)
+            fill_rect(
+                int(pt_x_base + dist * scale_sin[deg]),
+                int(pt_y_base - dist * scale_cos[deg]),
+                3, 3, col
+            )
 
-            if dist < 300:
-                painter.setBrush(self.brush_red)
-            elif dist < 800:
-                painter.setBrush(self.brush_yellow)
-            else:
-                painter.setBrush(self.brush_cyan)
-
-            painter.drawRect(int(px - 1), int(py - 1), 3, 3)
-
-        # 3. Roboter-Zentrumsanzeige
-        arrow_brush = self.brush_arrow_warn if min_dist_active < 300 else self.brush_arrow_normal
-        painter.setBrush(arrow_brush)
+        # 3. Roboter-Zentrumsanzeige (Antialiasing nur für den einzelnen Pfeil)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setBrush(self.brush_arrow_warn if min_dist_active < 300 else self.brush_arrow_normal)
         painter.setPen(self.pen_arrow)
-        arrow = QPolygonF([
-            QPointF(cx, cy - 7),
-            QPointF(cx + 5, cy + 5),
-            QPointF(cx, cy + 3),
-            QPointF(cx - 5, cy + 5)
-        ])
-        painter.drawPolygon(arrow)
+        painter.drawPolygon(self.arrow_poly)
 
         if not has_recent:
             painter.setPen(self.color_wait_lbl)
@@ -214,8 +224,11 @@ class LidarWindow(TouchWindow):
         self.lidar = None
         self.worker_running = True
         self.pts_per_sec = 0
+        self.last_shown_pts = -1
         self.pts_counter = 0
         self.pts_timer_t0 = time.time()
+        self._last_min_text = ''
+        self._last_min_color = ''
 
         main_widget = QWidget()
         vbox = QVBoxLayout()
@@ -249,17 +262,28 @@ class LidarWindow(TouchWindow):
         self.btn_range.clicked.connect(self.on_range_clicked)
         hbox.addWidget(self.btn_range)
 
-        self.lbl_status = QLabel('Verbinde...')
-        self.lbl_status.setStyleSheet(
-            'QLabel {'
-            ' font-size: 11px;'
-            ' font-weight: bold;'
-            ' color: #cccccc;'
-            ' background: transparent;'
-            '}'
+        # PlainText-Labels statt HTML-QLabel (spart Qt-HTML-Parser auf jedem Tick)
+        status_box = QVBoxLayout()
+        status_box.setContentsMargins(0, 0, 0, 0)
+        status_box.setSpacing(0)
+
+        self.lbl_min = QLabel('Verbinde...')
+        self.lbl_min.setTextFormat(Qt.PlainText)
+        self.lbl_min.setStyleSheet(
+            'QLabel { font-size: 11px; font-weight: bold; color: #cccccc; background: transparent; }'
         )
-        self.lbl_status.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        hbox.addWidget(self.lbl_status, stretch=1)
+        self.lbl_min.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        status_box.addWidget(self.lbl_min)
+
+        self.lbl_pts = QLabel('0 Pkt/s')
+        self.lbl_pts.setTextFormat(Qt.PlainText)
+        self.lbl_pts.setStyleSheet(
+            'QLabel { font-size: 11px; font-weight: bold; color: #8899aa; background: transparent; }'
+        )
+        self.lbl_pts.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        status_box.addWidget(self.lbl_pts)
+
+        hbox.addLayout(status_box, stretch=1)
 
         bottom_bar.setLayout(hbox)
         vbox.addWidget(bottom_bar)
@@ -270,10 +294,10 @@ class LidarWindow(TouchWindow):
         self.thread = threading.Thread(target=self._lidar_worker, daemon=True)
         self.thread.start()
 
-        # 8 FPS (125ms) - synchron mit der 10 Hz SPI-Hardware
+        # 5 FPS (200ms) - flüssig und ressourcenschonend für 600 MHz ARM
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_ui_tick)
-        self.timer.start(125)
+        self.timer.start(200)
 
     def on_range_clicked(self):
         label = self.radar.cycle_range()
@@ -291,33 +315,39 @@ class LidarWindow(TouchWindow):
             dists = list(self.radar.scan_dist)
             times = list(self.radar.scan_time)
 
+        self.radar.snap_dists = dists
+        self.radar.snap_times = times
+        self.radar.snap_now = now
+
+        cutoff = now - 0.6
         min_d = 99999
         min_deg = -1
         for deg in range(360):
             d = dists[deg]
-            t = times[deg]
-            if d > 0 and (now - t) < 0.6:
-                if d < min_d:
-                    min_d = d
-                    min_deg = deg
+            if 0 < d < min_d and times[deg] > cutoff:
+                min_d = d
+                min_deg = deg
 
         if min_deg >= 0:
             d_cm = min_d * 0.1
-            if d_cm < 30:
-                color = '#ff4444'
-            elif d_cm < 80:
-                color = '#ffcc00'
-            else:
-                color = '#00ffcc'
-            self.lbl_status.setText(
-                f'<span style="color:{color};">Min: {d_cm:.0f}cm ({min_deg}°)</span><br>'
-                f'<span style="color:#8899aa;">{self.pts_per_sec} Pkt/s</span>'
-            )
+            color = '#ff4444' if d_cm < 30 else ('#ffcc00' if d_cm < 80 else '#00ffcc')
+            min_text = f'Min: {d_cm:.0f}cm ({min_deg}°)'
         else:
-            self.lbl_status.setText(
-                '<span style="color:#ffaa00;">Warte auf Signal...</span><br>'
-                f'<span style="color:#8899aa;">{self.pts_per_sec} Pkt/s</span>'
+            color = '#ffaa00'
+            min_text = 'Warte auf Signal...'
+
+        if color != self._last_min_color:
+            self._last_min_color = color
+            self.lbl_min.setStyleSheet(
+                f'QLabel {{ font-size: 11px; font-weight: bold; color: {color}; background: transparent; }}'
             )
+        if min_text != self._last_min_text:
+            self._last_min_text = min_text
+            self.lbl_min.setText(min_text)
+
+        if self.pts_per_sec != self.last_shown_pts:
+            self.last_shown_pts = self.pts_per_sec
+            self.lbl_pts.setText(f'{self.pts_per_sec} Pkt/s')
 
         self.radar.update()
 
@@ -331,15 +361,20 @@ class LidarWindow(TouchWindow):
                     continue
                 last_pts_time = time.time()
 
+            # Serielles Lesen außerhalb des UI-Locks, damit GUI nie auf USB wartet
+            if not self.lidar.fill_buffer(block_size=400):
+                time.sleep(0.2)
+                continue
+
             now = time.time()
             with self.radar.data_lock:
                 n = self.lidar.read_into_radar(
-                    self.radar.scan_dist, self.radar.scan_time, now, block_size=400
+                    self.radar.scan_dist, self.radar.scan_time, now, block_size=0
                 )
             if n > 0:
                 self.pts_counter += n
                 last_pts_time = now
-                time.sleep(0.005)
+                time.sleep(0.025)
             else:
                 if (now - last_pts_time) > 2.0:
                     self.lidar.close()
@@ -347,7 +382,7 @@ class LidarWindow(TouchWindow):
                     self.lidar = LD06()
                     last_pts_time = now
                 else:
-                    time.sleep(0.02)
+                    time.sleep(0.025)
 
     def closeEvent(self, event):
         self.worker_running = False

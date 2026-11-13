@@ -18,7 +18,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 from PyQt5.QtCore import Qt, QTimer, QRectF, QPointF
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QFont, QPolygonF, QPixmap
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+from PyQt5.QtWidgets import QWidget
 from TouchStyle import TouchApplication, TouchWindow
 
 from ld06 import LD06
@@ -47,7 +47,6 @@ class SectorDashboardWidget(QWidget):
         super().__init__(parent)
         self.setFixedSize(240, 280)
         self.sector_data = [(0, 0, 0.0)] * 8
-        self.data_lock = threading.Lock()
         self.pts_per_sec = 0
 
         # Vorallozierte Grafik-Ressourcen
@@ -66,9 +65,9 @@ class SectorDashboardWidget(QWidget):
         self.brush_badge_green = QBrush(QColor(0, 160, 120))
         self.brush_badge_inactive = QBrush(QColor(35, 45, 55))
 
-        self.color_pie_red = QColor(255, 45, 45, 210)
-        self.color_pie_yellow = QColor(255, 190, 0, 190)
-        self.color_pie_green = QColor(0, 225, 200, 170)
+        self.brush_pie_red = QBrush(QColor(255, 45, 45, 210))
+        self.brush_pie_yellow = QBrush(QColor(255, 190, 0, 190))
+        self.brush_pie_green = QBrush(QColor(0, 225, 200, 170))
 
         self.color_fg_white = QColor(255, 255, 255)
         self.color_fg_black = QColor(0, 0, 0)
@@ -79,6 +78,29 @@ class SectorDashboardWidget(QWidget):
 
         self.font_bold_8 = QFont('Liberation Sans', 8, QFont.Bold)
         self.font_status_7 = QFont('Liberation Sans', 7)
+
+        # Vorberechnete Badge-Rechtecke
+        self._badge_rects = []
+        card_w = 110.0
+        card_h = 24.0
+        start_y = 153.0
+        spacing_y = 27.0
+        badge_w = 42.0
+        badge_h = 18.0
+        for col in range(2):
+            bx = 8.0 if col == 0 else 122.0
+            for row in range(4):
+                by = start_y + row * spacing_y
+                self._badge_rects.append(QRectF(
+                    bx + card_w - badge_w - 4.0,
+                    by + (card_h - badge_h) * 0.5,
+                    badge_w,
+                    badge_h,
+                ))
+
+        self._rect_inner = QRectF(120.0 - 23.0, 74.0 - 23.0, 46.0, 46.0)
+        self._rect_pts = QRectF(8, 280 - 16, 100, 14)
+        self._rect_min = QRectF(108, 280 - 16, 124, 14)
 
         # Statischer Hintergrund (nur 1x rendern -> spart ~80 % Rendering-CPU)
         self.bg_pixmap = QPixmap(240, 280)
@@ -141,7 +163,7 @@ class SectorDashboardWidget(QWidget):
         for col in range(2):
             for row in range(4):
                 idx = col * 4 + row
-                name, deg_str = SECTOR_NAMES[idx]
+                name, _ = SECTOR_NAMES[idx]
                 bx = 8.0 if col == 0 else 122.0
                 by = start_y + row * spacing_y
 
@@ -156,122 +178,109 @@ class SectorDashboardWidget(QWidget):
         p.end()
 
     def update_sectors(self, sector_values, pts_rate):
-        with self.data_lock:
-            self.sector_data = list(sector_values)
-            self.pts_per_sec = pts_rate
+        self.sector_data = sector_values
+        self.pts_per_sec = pts_rate
         self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
 
-        # 1. Vorberechneten Hintergrund blitzschnell blitten (1 Draw Call)
+        # 1. Vorberechneten Hintergrund blitzschnell blitten (ohne Antialiasing)
         painter.drawPixmap(0, 0, self.bg_pixmap)
 
         now = time.time()
-        with self.data_lock:
-            sectors = list(self.sector_data)
-            pts_rate = self.pts_per_sec
+        cutoff = now - 1.0
+        sectors = self.sector_data
+        pts_rate = self.pts_per_sec
 
         cx = 120.0
         cy = 74.0
         r_outer = 64.0
         r_inner = 23.0
 
-        # 2. Nur die dynamischen Warnbögen zeichnen
+        # 2. Dynamische Warnbögen (Antialiasing nur für Bögen)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        has_pie = False
         for i in range(8):
-            dist_mm, avg_mm, t = sectors[i]
-            if dist_mm > 0 and (now - t < 1.0):
+            dist_mm, _, t = sectors[i]
+            if dist_mm > 0 and t > cutoff:
+                has_pie = True
                 d_cm = dist_mm * 0.1
-                if d_cm < 30:
-                    fill_col = self.color_pie_red
-                elif d_cm < 80:
-                    fill_col = self.color_pie_yellow
-                else:
-                    fill_col = self.color_pie_green
+                pie_brush = self.brush_pie_red if d_cm < 30 else (
+                    self.brush_pie_yellow if d_cm < 80 else self.brush_pie_green
+                )
 
                 ratio = max(0.25, min(1.0, 1.0 - (d_cm / 160.0)))
                 r_bar = r_inner + ratio * (r_outer - r_inner)
-
                 start_angle = int((90 - i * 45 - 22.5) * 16)
-                span_angle = int(45 * 16)
-
                 rect_bar = QRectF(cx - r_bar, cy - r_bar, r_bar * 2, r_bar * 2)
-                rect_in = QRectF(cx - r_inner, cy - r_inner, r_inner * 2, r_inner * 2)
 
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(QBrush(fill_col))
-                painter.drawPie(rect_bar, start_angle, span_angle)
+                painter.setBrush(pie_brush)
+                painter.drawPie(rect_bar, start_angle, 720)
 
-                painter.setBrush(self.brush_bg)
-                painter.drawEllipse(rect_in)
+        if has_pie:
+            painter.setBrush(self.brush_bg)
+            painter.drawEllipse(self._rect_inner)
+        painter.setRenderHint(QPainter.Antialiasing, False)
 
         # 3. Dynamische Messwert-Badges
-        card_w = 110.0
-        card_h = 24.0
-        start_y = 153.0
-        spacing_y = 27.0
-        badge_w = 42.0
-        badge_h = 18.0
-
         min_overall_d = 99999
         min_overall_name = ''
 
         painter.setFont(self.font_bold_8)
-        for col in range(2):
-            for row in range(4):
-                idx = col * 4 + row
-                dist_mm, avg_mm, t = sectors[idx]
-                is_active = (dist_mm > 0) and (now - t < 1.0)
+        for idx in range(8):
+            dist_mm, _, t = sectors[idx]
+            is_active = dist_mm > 0 and t > cutoff
+            rect_badge = self._badge_rects[idx]
 
-                bx = 8.0 if col == 0 else 122.0
-                by = start_y + row * spacing_y
-                badge_x = bx + card_w - badge_w - 4.0
-                badge_y = by + (card_h - badge_h) * 0.5
+            if is_active:
+                d_cm = dist_mm * 0.1
+                if dist_mm < min_overall_d:
+                    min_overall_d = dist_mm
+                    min_overall_name = SECTOR_NAMES[idx][0]
 
-                if is_active:
-                    d_cm = dist_mm * 0.1
-                    if dist_mm < min_overall_d:
-                        min_overall_d = dist_mm
-                        min_overall_name = SECTOR_NAMES[idx][0]
-
-                    if d_cm < 30:
-                        badge_bg = self.brush_badge_red
-                        badge_fg = self.color_fg_white
-                    elif d_cm < 80:
-                        badge_bg = self.brush_badge_yellow
-                        badge_fg = self.color_fg_black
-                    else:
-                        badge_bg = self.brush_badge_green
-                        badge_fg = self.color_fg_white
-
-                    txt_val = f'{d_cm:.0f} cm' if d_cm < 100 else f'{int(d_cm)} cm'
+                if d_cm < 30:
+                    badge_bg = self.brush_badge_red
+                    badge_fg = self.color_fg_white
+                elif d_cm < 80:
+                    badge_bg = self.brush_badge_yellow
+                    badge_fg = self.color_fg_black
                 else:
-                    badge_bg = self.brush_badge_inactive
-                    badge_fg = self.color_fg_dim
-                    txt_val = '---'
+                    badge_bg = self.brush_badge_green
+                    badge_fg = self.color_fg_white
 
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(badge_bg)
-                painter.drawRoundedRect(QRectF(badge_x, badge_y, badge_w, badge_h), 3, 3)
+                txt_val = f'{d_cm:.0f} cm' if d_cm < 100 else f'{int(d_cm)} cm'
+            else:
+                badge_bg = self.brush_badge_inactive
+                badge_fg = self.color_fg_dim
+                txt_val = '---'
 
-                painter.setPen(badge_fg)
-                painter.drawText(QRectF(badge_x, badge_y, badge_w, badge_h), Qt.AlignCenter, txt_val)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(badge_bg)
+            painter.drawRoundedRect(rect_badge, 3, 3)
+
+            painter.setPen(badge_fg)
+            painter.drawText(rect_badge, Qt.AlignCenter, txt_val)
 
         # 4. Statuszeile ganz unten
         painter.setFont(self.font_status_7)
         painter.setPen(self.color_pts_lbl)
-        h = self.height()
-        painter.drawText(QRectF(8, h - 16, 100, 14), Qt.AlignVCenter | Qt.AlignLeft, f'{pts_rate} Pkt/s')
+        painter.drawText(self._rect_pts, Qt.AlignVCenter | Qt.AlignLeft, f'{pts_rate} Pkt/s')
 
         if min_overall_d < 99999:
             min_cm = min_overall_d * 0.1
-            warn_col = self.brush_badge_red.color() if min_cm < 30 else (self.brush_badge_yellow.color() if min_cm < 80 else self.color_dir_lbl)
+            warn_col = self.brush_badge_red.color() if min_cm < 30 else (
+                self.brush_badge_yellow.color() if min_cm < 80 else self.color_dir_lbl
+            )
             painter.setPen(warn_col)
-            painter.drawText(QRectF(108, h - 16, 124, 14), Qt.AlignVCenter | Qt.AlignRight, f'Min: {min_cm:.0f}cm ({min_overall_name})')
+            painter.drawText(
+                self._rect_min, Qt.AlignVCenter | Qt.AlignRight,
+                f'Min: {min_cm:.0f}cm ({min_overall_name})'
+            )
         else:
             painter.setPen(self.brush_badge_yellow.color())
-            painter.drawText(QRectF(108, h - 16, 124, 14), Qt.AlignVCenter | Qt.AlignRight, 'Warte auf LiDAR...')
+            painter.drawText(self._rect_min, Qt.AlignVCenter | Qt.AlignRight, 'Warte auf LiDAR...')
 
 
 class LidarSectorsWindow(TouchWindow):
@@ -314,12 +323,13 @@ class LidarSectorsWindow(TouchWindow):
             self.pts_counter = 0
             self.pts_timer_t0 = now
 
+        sec_snapshot = []
         with self.sector_lock:
-            sec_snapshot = []
             for i in range(8):
-                if self.sec_cnt[i] > 0:
+                cnt = self.sec_cnt[i]
+                if cnt > 0:
                     min_d = self.sec_min[i]
-                    avg_d = self.sec_sum[i] // self.sec_cnt[i]
+                    avg_d = self.sec_sum[i] // cnt
                     t = self.sec_time[i]
                     self.last_display_min[i] = min_d
                     sec_snapshot.append((min_d, avg_d, t))
@@ -330,9 +340,9 @@ class LidarSectorsWindow(TouchWindow):
                     else:
                         sec_snapshot.append((0, 0, 0.0))
 
-            self.sec_min = [99999] * 8
-            self.sec_sum = [0] * 8
-            self.sec_cnt = [0] * 8
+                self.sec_min[i] = 99999
+                self.sec_sum[i] = 0
+                self.sec_cnt[i] = 0
 
         self.dashboard.update_sectors(sec_snapshot, self.pts_per_sec)
 
@@ -346,15 +356,19 @@ class LidarSectorsWindow(TouchWindow):
                     continue
                 last_pts_time = time.time()
 
+            if not self.lidar.fill_buffer(block_size=400):
+                time.sleep(0.2)
+                continue
+
             now = time.time()
             with self.sector_lock:
                 n = self.lidar.read_into_sectors(
-                    self.sec_min, self.sec_sum, self.sec_cnt, self.sec_time, now, block_size=400
+                    self.sec_min, self.sec_sum, self.sec_cnt, self.sec_time, now, block_size=0
                 )
             if n > 0:
                 self.pts_counter += n
                 last_pts_time = now
-                time.sleep(0.005)
+                time.sleep(0.025)
             else:
                 if (now - last_pts_time) > 2.0:
                     self.lidar.close()
@@ -362,7 +376,7 @@ class LidarSectorsWindow(TouchWindow):
                     self.lidar = LD06()
                     last_pts_time = now
                 else:
-                    time.sleep(0.02)
+                    time.sleep(0.025)
 
     def closeEvent(self, event):
         self.worker_running = False
