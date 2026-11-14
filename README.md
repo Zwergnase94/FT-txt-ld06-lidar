@@ -1,13 +1,13 @@
 # LD06 LiDAR-Treiber & Apps für fischertechnik ROBOTICS TXT (ftcommunity-TXT)
 
-[![Version](https://img.shields.io/badge/Version-v1.3.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/tags)
+[![Version](https://img.shields.io/badge/Version-v1.4.0-brightgreen.svg)](https://github.com/Zwergnase94/FT-txt-ld06-lidar/tags)
 [![ftcommunity-TXT](https://img.shields.io/badge/Firmware-ftcommunity--TXT_1.1.4_%7C_6.12-blue.svg)](https://github.com/ftCommunity/ftcommunity-TXT)
 [![Platform](https://img.shields.io/badge/SoC-TI_AM3359_Cortex--A8-green.svg)](https://www.ti.com/product/AM3359)
 [![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)](https://www.python.org/)
 [![UI](https://img.shields.io/badge/GUI-TouchStyle_%2F_PyQt5-orange.svg)](https://github.com/harbaum/TouchUI)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-Python-Treiber, System-Skripte (udev & automatischer USB-Reset) und zwei Touchscreen-Apps für **LDROBOT LD06 / LD19** sowie **YDLIDAR** (2- und 3-Byte-Protokoll, z. B. mit CP2102 oder CH340) auf dem **fischertechnik ROBOTICS TXT Controller** mit **Community-Firmware (ftcommunity-TXT 1.1.4 / Kernel 4.14 sowie Kernel 6.12+)**.
+Python-Treiber, System-Skripte (udev & automatischer USB-Reset) und drei Touchscreen-Apps für **LDROBOT LD06 / LD19** sowie **YDLIDAR** (2- und 3-Byte-Protokoll, z. B. mit CP2102 oder CH340) auf dem **fischertechnik ROBOTICS TXT Controller** mit **Community-Firmware (ftcommunity-TXT 1.1.4 / Kernel 4.14 sowie Kernel 6.12+)**.
 
 > **TXT 4.0 im Einsatz?** Für den neueren **fischertechnik TXT 4.0** gibt es ein separates Repository: [FT-txt-4.0-ld06-lidar](https://github.com/Zwergnase94/FT-txt-4.0-ld06-lidar).
 
@@ -30,7 +30,7 @@ Python-Treiber, System-Skripte (udev & automatischer USB-Reset) und zwei Touchsc
 
 ## Enthaltene Touch-Apps
 
-Beide Apps erscheinen nach der Installation direkt auf dem Startbildschirm der Community-Firmware.
+Alle drei Apps erscheinen nach der Installation direkt auf dem Startbildschirm der Community-Firmware.
 
 ### 1. App „LIDAR“ – 360°-Radar
 * Ressourcenschonendes Rendering über `QPainter` und `TouchStyle` mit gecachtem Hintergrund und `PlainText`-Labels (5 FPS bei geringer CPU-Last auf dem 600-MHz-Prozessor).
@@ -40,6 +40,12 @@ Beide Apps erscheinen nach der Installation direkt auf dem Startbildschirm der C
 ### 2. App „8 Zonen“ – Hindernis-Dashboard
 * Kreisförmige Segmentanzeige rund um das Fahrzeugsymbol sowie acht Kacheln mit Zentimeter-Messwerten (Vorne, V-Rechts, Rechts, H-Rechts, Hinten, H-Links, Links, V-Links; 5 FPS).
 * Statuszeile mit dem aktuell nächsten Hindernis (z. B. `Min: 34 cm (Rechts)`).
+
+### 3. App „Omni 8-Zonen“ – Omniwheel-Steuerung mit Brems- & Stopp-Schutz
+* Baut auf dem 8-Zonen-Dashboard auf und steuert einen 4-Rad-Omniwheel-Roboter (`M1`–`M4`) über das **Bluetooth Control Set** (`/dev/input/js0` via `ft_bt_remote_server`) oder die **IR-Fernbedienung** (`ftrobopy`).
+* **Linker Joystick (alle 8 Richtungen):** Fährt in den gewählten Sektor (`V`, `VR`, `R`, `HR`, `H`, `HL`, `L`, `VL`), reduziert die Motorgeschwindigkeit ab **30 cm** (`300 mm`) schrittweise herunter (Gelbe Zone) und stoppt ab **`<= 18 cm`** (`180 mm`) automatisch (Rote Zone mit `18,5 cm` Freigabe-Hysterese).
+* **Rechter Joystick (Links/Rechts):** Dreht den Roboter auf der Stelle um die eigene Achse.
+* **Performance-Optimiert:** `25 Hz` Regelschleife (`ftrobopy` mit `update_interval=0.04`), lock-freie Sektor-Auswertung im Worker-Thread und Dirty-Check-UI (`5 FPS`). Touch auf das Fahrzeugsymbol pausiert die Motoren; das App-Menü erlaubt das Umkehren der Drehrichtung.
 
 ---
 
@@ -67,7 +73,7 @@ chmod +x install.sh
 
 *(Alternativ das Repository am PC herunterladen und per `scp -r` nach `/home/ftc/ld06-lidar` kopieren.)*
 
-Das Skript installiert udev-Regel, USB-Reset-Freigabe sowie beide Apps und trägt sie auf dem Startbildschirm ein.
+Das Skript installiert udev-Regel, USB-Reset-Freigabe sowie alle drei Apps und trägt sie auf dem Startbildschirm ein.
 
 <details>
 <summary><strong>Manuelle Installation (Einzelschritte anzeigen)</strong></summary>
@@ -88,14 +94,18 @@ echo 10c4 ea60 | sudo tee /sys/bus/usb-serial/drivers/generic/new_id
 # 3. Apps nach /home/ftc/apps/ kopieren
 mkdir -p /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66
 mkdir -p /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88
+mkdir -p /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99
 cp -r apps/lidar_radar/* /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/
 cp -r apps/lidar_8zones/* /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/
+cp -r apps/lidar_omni/* /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99/
 chmod +x /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/main.py
 chmod +x /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/main.py
+chmod +x /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99/main.py
 
 # 4. In /home/ftc/.launcher.xml unter <apps> eintragen und Launcher neu starten:
 #    <app path="user/02eef5e0-981a-11ed-87cd-0800200c9a66" />
 #    <app path="user/e8b5a1f0-4567-4f89-8d12-10d6800c9a88" />
+#    <app path="user/f4c8e2a0-7890-4b12-9c34-20e7900c9a99" />
 sudo /etc/init.d/S90launcher restart
 ```
 </details>
@@ -136,6 +146,7 @@ Ein Konsolen-Beispiel mit 8-Sektoren-Auswertung liegt unter [`driver/example_cli
 
 ## Changelog
 
+* **v1.4.0:** Neue Touch-App **„Omni 8-Zonen“** ([`apps/lidar_omni`](apps/lidar_omni)) zur 8-Wege-Steuerung eines 4-Rad-Omniwheel-Roboters (`M1`–`M4`) per BT-/IR-Fernbedienung mit schrittweiser Geschwindigkeitsreduzierung ab **30 cm** und Vollstopp bei **<= 18 cm** sowie Drehung um die eigene Achse (rechter Stick); weitere Performance-Optimierungen in [`driver/ld06.py`](driver/ld06.py) (entrollter `read_into_sectors`-Schnellpfad & geinlintes CRC-8), lock-freie Sektor-Auswertung und `ftrobopy` 25-Hz-Taktrate.
 * **v1.3.0:** Multi-Sensor-Unterstützung mit Auto-Erkennung für LD06 (`0x54 0x2C`) sowie YDLIDAR 2-/3-Byte (`0xAA 0x55`, XOR-16, u. a. über CH340); USB-Reset für Kernel `4.14` und `6.12+`; dynamische `new_id`-Bindung in udev & Installer für Hot-Swap CH340 ↔ CP2102; deutliche UI- und Treiber-Performance-Optimierung (`fill_buffer` außerhalb UI-Lock, `PlainText`-Labels, 5 FPS Radar ohne Punkt-Antialiasing, vorallozierte `8 Zonen`-Brushes) bei voller Python-3.8-/1.1.4-Kompatibilität.
 * **v1.2.0:** CRC-8-Paketprüfung (`0x4D`), Signalstärken-Filter (`conf >= 100`) gegen 6-cm-Streulicht-Ausreißer, Nahbereichs-Ausblendung (`< 30 mm`) und ruhigere Sektor-Anzeige (Backport vom TXT 4.0).
 * **v1.1.0:** Zero-Allocation-Puffer im Treiber, `QPixmap`-Hintergrund-Caching in beiden Apps und reduzierte CPU-Last (< 15 %).

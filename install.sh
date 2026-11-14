@@ -41,12 +41,15 @@ fi
 echo "[4/6] Installiere Apps nach /home/ftc/apps/..."
 mkdir -p /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66
 mkdir -p /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88
+mkdir -p /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99
 
 cp -r "$BASE_DIR/apps/lidar_radar/"* /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/
 cp -r "$BASE_DIR/apps/lidar_8zones/"* /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/
+cp -r "$BASE_DIR/apps/lidar_omni/"* /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99/
 
 chmod +x /home/ftc/apps/02eef5e0-981a-11ed-87cd-0800200c9a66/main.py
 chmod +x /home/ftc/apps/e8b5a1f0-4567-4f89-8d12-10d6800c9a88/main.py
+chmod +x /home/ftc/apps/f4c8e2a0-7890-4b12-9c34-20e7900c9a99/main.py
 
 # 5. Launcher Startbildschirm aktualisieren
 echo "[5/6] Platziere Apps auf dem Startbildschirm..."
@@ -61,12 +64,16 @@ try:
         existing = [el.attrib.get('path') for el in apps.findall('app')]
         p1 = 'user/02eef5e0-981a-11ed-87cd-0800200c9a66'
         p2 = 'user/e8b5a1f0-4567-4f89-8d12-10d6800c9a88'
+        p3 = 'user/f4c8e2a0-7890-4b12-9c34-20e7900c9a99'
         if p1 not in existing:
             el = ET.Element('app', {'path': p1})
             apps.insert(0, el)
         if p2 not in existing:
             el = ET.Element('app', {'path': p2})
             apps.insert(1, el)
+        if p3 not in existing:
+            el = ET.Element('app', {'path': p3})
+            apps.insert(2, el)
         tree.write('/home/ftc/.launcher.xml')
 except Exception as e:
     pass
@@ -80,5 +87,5 @@ sudo /etc/init.d/S90launcher restart || true
 echo ""
 echo "=========================================================="
 echo "  Installation erfolgreich abgeschlossen!"
-echo "  Die Apps 'LIDAR' und '8 Zonen' sind jetzt auf dem TXT!"
+echo "  Die Apps 'LIDAR', '8 Zonen' und 'Omni 8-Zonen' sind bereit!"
 echo "=========================================================="

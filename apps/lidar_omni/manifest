@@ -1,0 +1,10 @@
+[app]
+name: Omni 8-Zonen
+icon: icon.png
+desc: Omniwheel 8-Wege Joystick-Steuerung mit 30->18cm LiDAR-Bremsrampe & Stopp
+url: 
+exec: main.py
+managed: yes
+uuid: f4c8e2a0-7890-4b12-9c34-20e7900c9a99
+version: 1.4.0
+firmware: >=0.9.0

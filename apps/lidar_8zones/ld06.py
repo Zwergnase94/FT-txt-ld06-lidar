@@ -66,7 +66,7 @@ def cal_crc8(data):
     crc = 0
     table = CRC_TABLE
     for b in data:
-        crc = table[(crc ^ b) & 0xff]
+        crc = table[crc ^ b]
     return crc
 
 
@@ -245,7 +245,11 @@ class LD06:
                 if idx + 47 > n_buf:
                     return None, idx
                 end = idx + 47
-                if cal_crc8(memoryview(buf)[idx:end - 1]) != buf[end - 1]:
+                crc = 0
+                table = CRC_TABLE
+                for off_c in range(idx, end - 1):
+                    crc = table[crc ^ buf[off_c]]
+                if crc != buf[end - 1]:
                     pos = idx + 2
                     continue
                 self._proto = 'ld06'
@@ -378,26 +382,44 @@ class LD06:
                         ang += step
             elif mode == 1:
                 # Schnellpfad: 8-Sektoren-Auswertung ohne Objektallokation
-                for off in range(start, end, stride):
-                    if fmt == 1:
+                ang += 22.5
+                if fmt == 1:
+                    for off in range(start, end, 3):
                         s1 = buf[off + 1]
                         dist = (s1 | (buf[off + 2] << 8)) >> 2
-                        conf = ((s1 & 0x03) << 8) | buf[off]
-                    elif fmt == 0:
+                        if dist >= MIN_DISTANCE_MM and (((s1 & 0x03) << 8) | buf[off]) >= min_conf:
+                            pts_count += 1
+                            sec_idx = int(ang * 0.022222222222222223) & 7
+                            if dist < sec_min[sec_idx]:
+                                sec_min[sec_idx] = dist
+                            sec_sum[sec_idx] += dist
+                            sec_cnt[sec_idx] += 1
+                            sec_time[sec_idx] = now
+                        ang += step
+                elif fmt == 0:
+                    for off in range(start, end, 3):
                         dist = buf[off] | (buf[off + 1] << 8)
-                        conf = buf[off + 2]
-                    else:
+                        if dist >= MIN_DISTANCE_MM and buf[off + 2] >= min_conf:
+                            pts_count += 1
+                            sec_idx = int(ang * 0.022222222222222223) & 7
+                            if dist < sec_min[sec_idx]:
+                                sec_min[sec_idx] = dist
+                            sec_sum[sec_idx] += dist
+                            sec_cnt[sec_idx] += 1
+                            sec_time[sec_idx] = now
+                        ang += step
+                else:
+                    for off in range(start, end, 2):
                         dist = (buf[off] | (buf[off + 1] << 8)) >> 2
-                        conf = 200
-                    if dist >= MIN_DISTANCE_MM and conf >= min_conf:
-                        pts_count += 1
-                        sec_idx = int(((ang % 360.0) + 22.5) * 0.022222222222222223) & 7
-                        if dist < sec_min[sec_idx]:
-                            sec_min[sec_idx] = dist
-                        sec_sum[sec_idx] += dist
-                        sec_cnt[sec_idx] += 1
-                        sec_time[sec_idx] = now
-                    ang += step
+                        if dist >= MIN_DISTANCE_MM and 200 >= min_conf:
+                            pts_count += 1
+                            sec_idx = int(ang * 0.022222222222222223) & 7
+                            if dist < sec_min[sec_idx]:
+                                sec_min[sec_idx] = dist
+                            sec_sum[sec_idx] += dist
+                            sec_cnt[sec_idx] += 1
+                            sec_time[sec_idx] = now
+                        ang += step
             else:
                 for off in range(start, end, stride):
                     if fmt == 1:
